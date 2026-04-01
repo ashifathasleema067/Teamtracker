@@ -17,8 +17,16 @@ export default function Auth() {
         setIsLoading(false);
         return;
       }
-      console.error(err);
-      setError(err.message || 'Failed to sign in. Please try again.');
+      console.error("Login error:", err);
+      let errorMessage = 'Failed to sign in. Please try again.';
+      if (err.code === 'auth/unauthorized-domain') {
+        errorMessage = 'This domain is not authorized for Firebase Authentication. Please check your Firebase console.';
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMessage = 'The login popup was blocked by your browser. Please allow popups for this site.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

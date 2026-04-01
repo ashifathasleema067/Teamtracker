@@ -80,78 +80,83 @@ export default function App() {
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // Check if user profile exists
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (!userDoc.exists()) {
-          // Create default profile
-          const defaultTeamId = 'general-team';
-          const rollNumber = null; // Force user to set a valid roll number
+      try {
+        setUser(currentUser);
+        if (currentUser) {
+          // Check if user profile exists
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
           
-          const newProfile: UserProfile = {
-            uid: currentUser.uid,
-            displayName: currentUser.displayName || 'Anonymous',
-            fullName: currentUser.displayName || '',
-            rollNumber: rollNumber,
-            role: 'Member',
-            email: currentUser.email || '',
-            photoURL: currentUser.photoURL || '',
-            activityPoints: 0,
-            primarySkills: [],
-            secondarySkills: [],
-            teamId: defaultTeamId,
-            streak: 0,
-            lastActive: new Date().toISOString(),
-            joinDate: new Date().toISOString(),
-            completedTasksCount: 0
-          };
-          await setDoc(userDocRef, newProfile);
-          
-          // Ensure team exists
-          const teamRef = doc(db, 'teams', defaultTeamId);
-          const teamDoc = await getDoc(teamRef);
-          if (!teamDoc.exists()) {
-            await setDoc(teamRef, {
-              id: defaultTeamId,
-              name: 'General Team',
-              memberCount: 1
-            });
+          if (!userDoc.exists()) {
+            // Create default profile
+            const defaultTeamId = 'general-team';
+            const rollNumber = null; // Force user to set a valid roll number
+            
+            const newProfile: UserProfile = {
+              uid: currentUser.uid,
+              displayName: currentUser.displayName || 'Anonymous',
+              fullName: currentUser.displayName || '',
+              rollNumber: rollNumber,
+              role: 'Member',
+              email: currentUser.email || '',
+              photoURL: currentUser.photoURL || '',
+              activityPoints: 0,
+              primarySkills: [],
+              secondarySkills: [],
+              teamId: defaultTeamId,
+              streak: 0,
+              lastActive: new Date().toISOString(),
+              joinDate: new Date().toISOString(),
+              completedTasksCount: 0
+            };
+            await setDoc(userDocRef, newProfile);
+            
+            // Ensure team exists
+            const teamRef = doc(db, 'teams', defaultTeamId);
+            const teamDoc = await getDoc(teamRef);
+            if (!teamDoc.exists()) {
+              await setDoc(teamRef, {
+                id: defaultTeamId,
+                name: 'General Team',
+                memberCount: 1
+              });
+            } else {
+              // Update member count
+              await updateDoc(teamRef, {
+                memberCount: increment(1)
+              });
+            }
           } else {
-            // Update member count
-            await updateDoc(teamRef, {
-              memberCount: increment(1)
-            });
+            // Check if existing user is missing new fields
+            const data = userDoc.data() as UserProfile;
+            if (!data.rollNumber || !data.fullName || !data.role || data.activityPoints === undefined || !data.teamId || !data.primarySkills || !data.secondarySkills) {
+              const rollNumber = data.rollNumber || null;
+              await updateDoc(userDocRef, {
+                rollNumber: rollNumber,
+                fullName: data.fullName || data.displayName || '',
+                role: data.role || 'Member',
+                activityPoints: data.activityPoints || 0,
+                primarySkills: data.primarySkills || [],
+                secondarySkills: data.secondarySkills || [],
+                teamId: data.teamId || 'general-team',
+                joinDate: data.joinDate || new Date().toISOString(),
+                completedTasksCount: data.completedTasksCount || 0
+              });
+            }
           }
         } else {
-          // Check if existing user is missing new fields
-          const data = userDoc.data() as UserProfile;
-          if (!data.rollNumber || !data.fullName || !data.role || data.activityPoints === undefined || !data.teamId || !data.primarySkills || !data.secondarySkills) {
-            const rollNumber = data.rollNumber || null;
-            await updateDoc(userDocRef, {
-              rollNumber: rollNumber,
-              fullName: data.fullName || data.displayName || '',
-              role: data.role || 'Member',
-              activityPoints: data.activityPoints || 0,
-              primarySkills: data.primarySkills || [],
-              secondarySkills: data.secondarySkills || [],
-              teamId: data.teamId || 'general-team',
-              joinDate: data.joinDate || new Date().toISOString(),
-              completedTasksCount: data.completedTasksCount || 0
-            });
-          }
+          setUserProfile(null);
+          setTasks([]);
+          setAllTeamTasks([]);
+          setTeamMembers([]);
+          setTeam(null);
+          setProjects([]);
         }
-      } else {
-        setUserProfile(null);
-        setTasks([]);
-        setAllTeamTasks([]);
-        setTeamMembers([]);
-        setTeam(null);
-        setProjects([]);
+      } catch (error) {
+        console.error("Auth state change error:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
