@@ -1,0 +1,143 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A team member with detailed profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique Firebase Auth ID." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "fullName": { "type": "string", "description": "The user's full name." },
+        "rollNumber": { "type": "string", "description": "Unique roll number within a team." },
+        "role": { "type": "string", "enum": ["Captain", "Vice Captain", "Manager", "Strategist", "Member"], "description": "Team role." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "photoURL": { "type": "string", "format": "url", "description": "The user's profile picture URL." },
+        "primarySkills": { "type": "array", "items": { "type": "string" }, "description": "The user's primary skills." },
+        "secondarySkills": { "type": "array", "items": { "type": "string" }, "description": "The user's secondary skills." },
+        "activityPoints": { "type": "number", "description": "Activity points earned by the user." },
+        "teamId": { "type": "string", "description": "The ID of the team the user belongs to." },
+        "streak": { "type": "number", "description": "Current daily streak count." },
+        "lastActive": { "type": "string", "format": "date-time", "description": "Last time the user was active." },
+        "joinDate": { "type": "string", "format": "date-time", "description": "When the user joined the app." },
+        "completedTasksCount": { "type": "number", "description": "Total number of completed tasks." }
+      },
+      "required": ["uid", "displayName", "email", "teamId"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A daily task assigned to or created by a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique task ID." },
+        "title": { "type": "string", "description": "Task title." },
+        "description": { "type": "string", "description": "Task description." },
+        "deadline": { "type": "string", "format": "date-time", "description": "Task deadline." },
+        "status": { "type": "string", "enum": ["pending", "completed"], "description": "Current status of the task." },
+        "points": { "type": "number", "description": "Points awarded for this task." },
+        "authorId": { "type": "string", "description": "The UID of the user who owns this task." },
+        "teamId": { "type": "string", "description": "The team ID this task belongs to." },
+        "completedAt": { "type": "string", "format": "date-time", "description": "When the task was completed." },
+        "earnedPoints": { "type": "number", "description": "Points actually earned for this task." },
+        "submissions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string" },
+              "userName": { "type": "string" },
+              "userPhoto": { "type": "string" },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "url": { "type": "string" },
+                    "type": { "type": "string" }
+                  }
+                }
+              },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "comment": { "type": "string" }
+            }
+          },
+          "description": "List of proof submissions for this task."
+        }
+      },
+      "required": ["id", "title", "status", "points", "authorId", "teamId"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "A group of users working together.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique team ID." },
+        "name": { "type": "string", "description": "Team name." },
+        "memberCount": { "type": "number", "description": "Number of members in the team." },
+        "captainId": { "type": "string", "description": "UID of the team's Captain." },
+        "viceCaptainId": { "type": "string", "description": "UID of the team's Vice Captain." },
+        "managerId": { "type": "string", "description": "UID of the team's Manager." },
+        "strategistId": { "type": "string", "description": "UID of the team's Strategist." }
+      },
+      "required": ["id", "name", "memberCount"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A real-time chat message within a team.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique message ID." },
+        "senderId": { "type": "string", "description": "The UID of the sender." },
+        "senderName": { "type": "string", "description": "Name of the sender." },
+        "rollNumber": { "type": "string", "description": "Roll number of the sender." },
+        "role": { "type": "string", "description": "Role of the sender." },
+        "text": { "type": "string", "description": "Message content." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the message was sent." }
+      },
+      "required": ["id", "senderId", "senderName", "rollNumber", "role", "text", "timestamp"]
+    },
+    "TeamProject": {
+      "title": "TeamProject",
+      "description": "A shared project file or link within a team.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique project ID." },
+        "teamId": { "type": "string", "description": "The team ID this project belongs to." },
+        "title": { "type": "string", "description": "Project title." },
+        "description": { "type": "string", "description": "Project description." },
+        "fileUrl": { "type": "string", "format": "url", "description": "URL of the uploaded file." },
+        "fileName": { "type": "string", "description": "Original name of the uploaded file." },
+        "link": { "type": "string", "format": "url", "description": "External project link." },
+        "uploadedBy": { "type": "string", "description": "UID of the uploader." },
+        "uploaderName": { "type": "string", "description": "Name of the uploader." },
+        "rollNumber": { "type": "string", "description": "Roll number of the uploader." },
+        "uploadDate": { "type": "string", "format": "date-time", "description": "When the project was uploaded." },
+        "type": { "type": "string", "enum": ["file", "link"], "description": "Type of project entry." },
+        "fileType": { "type": "string", "description": "MIME type or extension of the file." }
+      },
+      "required": ["id", "teamId", "title", "uploadedBy", "uploaderName", "rollNumber", "uploadDate", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile and stats."
+    },
+    "/teams/{teamId}": {
+      "schema": "Team",
+      "description": "Team metadata and aggregate stats."
+    },
+    "/teams/{teamId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Real-time chat messages for a team."
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Individual tasks."
+    },
+    "/teamProjects/{projectId}": {
+      "schema": "TeamProject",
+      "description": "Shared project files and links."
+    }
+  }
+}

@@ -1,0 +1,239 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (Firebase Auth UID)
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - displayName: string (required, min 1, max 100)
+    //   - email: string (required, email format)
+    //   - photoURL: string (optional, url format)
+    //   - primarySkills: string (optional, max 500)
+    //   - secondarySkills: string (optional, max 500)
+    //   - activityPoints: number (optional, >= 0)
+    //   - teamId: string (required, min 1)
+    //   - streak: number (optional, >= 0)
+    //   - lastActive: string (optional, ISO 8601)
+    //
+    // Collection: teams
+    // Document ID: {teamId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - name: string (required, min 1, max 100)
+    //   - memberCount: number (required, >= 0)
+    //
+    // Collection: tasks
+    // Document ID: {taskId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - title: string (required, min 1, max 200)
+    //   - description: string (optional, max 1000)
+    //   - deadline: string (required, ISO 8601)
+    //   - status: string (required, enum: ['pending', 'completed'])
+    //   - points: number (required, >= 0)
+    //   - authorId: string (required, immutable)
+    //   - teamId: string (required, immutable)
+    //   - completedAt: string (optional, ISO 8601)
+    //   - submissions: array (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.authorId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (
+          (request.auth.token.email == "ashifathasleema067@gmail.com" && request.auth.token.email_verified == true) ||
+          (request.auth.token.email == "ashifathasleemaa.cs25@bitsathy.ac.in" && request.auth.token.email_verified == true) ||
+          (request.auth.uid == "xfn0Qzy6d0gFIWJ9c3KCtjNOA2R2") ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        );
+    }
+
+    function isTeamCaptainOrManager(teamId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Captain' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Manager') &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == teamId;
+    }
+
+    function isInSameTeam(teamId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == teamId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && (email == "" || email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"));
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url == "" || url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'teamId']) &&
+             data.uid == userId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             isValidEmail(data.email) &&
+             (data.teamId == null || (data.teamId is string && data.teamId.size() >= 1)) &&
+             (!('photoURL' in data) || isValidUrl(data.photoURL)) &&
+             (!('streak' in data) || (data.streak is number && data.streak >= 0)) &&
+             (!('lastActive' in data) || isValidDateString(data.lastActive)) &&
+             (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 200)) &&
+             (!('rollNumber' in data) || (data.rollNumber == null || data.rollNumber == "" || (data.rollNumber is string && data.rollNumber.size() <= 50))) &&
+             (!('role' in data) || (data.role in ['Captain', 'Vice Captain', 'Manager', 'Strategist', 'Member'])) &&
+             (!('activityPoints' in data) || (data.activityPoints is number && data.activityPoints >= 0)) &&
+             (!('primarySkills' in data) || (data.primarySkills is list)) &&
+             (!('secondarySkills' in data) || (data.secondarySkills is list)) &&
+             (!('joinDate' in data) || isValidDateString(data.joinDate)) &&
+             (!('completedTasksCount' in data) || (data.completedTasksCount is number && data.completedTasksCount >= 0));
+    }
+
+    function isValidTask(data, isCreate) {
+      return data.keys().hasAll(['id', 'title', 'deadline', 'status', 'points', 'authorId', 'teamId']) &&
+             data.id is string && data.id.size() >= 1 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             isValidDateString(data.deadline) &&
+             data.status in ['pending', 'completed'] &&
+             data.points is number && data.points >= 0 &&
+             (isCreate ? data.authorId == request.auth.uid : data.authorId == resource.data.authorId) &&
+             data.teamId is string && data.teamId.size() >= 1 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('completedAt' in data) || (data.completedAt == null || isValidDateString(data.completedAt))) &&
+             (!('earnedPoints' in data) || (data.earnedPoints is number && data.earnedPoints >= 0)) &&
+             (!('submissions' in data) || data.submissions is list);
+    }
+
+    function isValidTeam(data) {
+      return data.keys().hasAll(['id', 'name', 'memberCount']) &&
+             data.id is string && data.id.size() >= 1 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.memberCount is number && data.memberCount >= 0 &&
+             (!('captainId' in data) || (data.captainId == null || data.captainId is string)) &&
+             (!('viceCaptainId' in data) || (data.viceCaptainId == null || data.viceCaptainId is string)) &&
+             (!('managerId' in data) || (data.managerId == null || data.managerId is string)) &&
+             (!('strategistId' in data) || (data.strategistId == null || data.strategistId is string));
+    }
+
+    function isValidTeamProject(data) {
+      return data.keys().hasAll(['id', 'teamId', 'title', 'uploadedBy', 'uploaderName', 'rollNumber', 'uploadDate', 'type']) &&
+             data.id is string && data.id.size() >= 1 &&
+             data.teamId is string && data.teamId.size() >= 1 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.uploadedBy == request.auth.uid &&
+             data.uploaderName is string &&
+             data.rollNumber is string &&
+             isValidDateString(data.uploadDate) &&
+             data.type in ['file', 'link'] &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('fileUrl' in data) || isValidUrl(data.fileUrl)) &&
+             (!('fileName' in data) || (data.fileName is string)) &&
+             (!('link' in data) || isValidUrl(data.link)) &&
+             (!('fileType' in data) || (data.fileType is string));
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Users can read profiles of anyone
+      allow read: if isAuthenticated();
+      
+      // Only owner can create their profile
+      allow create: if isOwner(userId) && isValidUser(request.resource.data, userId);
+      
+      // Owner can update their profile. Captain can manage team members.
+      allow update: if (isOwner(userId) || isAdmin() || (resource.data.teamId != null && isTeamCaptainOrManager(resource.data.teamId))) && 
+                      isValidUser(request.resource.data, userId) && 
+                      request.resource.data.uid == resource.data.uid;
+    }
+
+    match /teams/{teamId} {
+      // Any authenticated user can read team data
+      allow read: if isAuthenticated();
+      
+      // Any authenticated user can create a team
+      allow create: if isAuthenticated() && isValidTeam(request.resource.data);
+      
+      // Users can update team points when completing tasks, Captain can manage team roles
+      allow update: if (isAuthenticated() || isAdmin() || isTeamCaptainOrManager(teamId)) && isValidTeam(request.resource.data) &&
+                      request.resource.data.id == resource.data.id;
+    }
+
+    match /tasks/{taskId} {
+      // Users can read all tasks
+      allow read: if isAuthenticated();
+      
+      // Only owner can create tasks
+      allow create: if isAuthenticated() && isValidTask(request.resource.data, true);
+      
+      // Owner or Admin can update everything. Team members can update submissions and status.
+      allow update: if (isDocOwner() || isAdmin() || isInSameTeam(resource.data.teamId)) && 
+                      isValidTask(request.resource.data, false) &&
+                      request.resource.data.id == resource.data.id &&
+                      request.resource.data.authorId == resource.data.authorId &&
+                      request.resource.data.teamId == resource.data.teamId;
+                      
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /teams/{teamId}/messages/{messageId} {
+      // Only team members or admins can read/write messages
+      allow read, create: if isAuthenticated() && (
+        isAdmin() ||
+        isInSameTeam(teamId)
+      );
+      
+      // Messages can be deleted by Captain/Manager or Admin
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || isTeamCaptainOrManager(teamId);
+    }
+
+    match /teamProjects/{projectId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && 
+                      isValidTeamProject(request.resource.data) &&
+                      isInSameTeam(request.resource.data.teamId);
+      
+      allow update: if isAuthenticated() && 
+                      (isAdmin() || isTeamCaptainOrManager(resource.data.teamId)) &&
+                      isValidTeamProject(request.resource.data) &&
+                      request.resource.data.id == resource.data.id &&
+                      request.resource.data.teamId == resource.data.teamId;
+                      
+      allow delete: if isAuthenticated() && 
+                      (isAdmin() || isTeamCaptainOrManager(resource.data.teamId));
+    }
+  }
+}
