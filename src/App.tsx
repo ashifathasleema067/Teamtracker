@@ -143,6 +143,13 @@ export default function App() {
             });
           }
         }
+      } else {
+        setUserProfile(null);
+        setTasks([]);
+        setAllTeamTasks([]);
+        setTeamMembers([]);
+        setTeam(null);
+        setProjects([]);
       }
       setLoading(false);
     });

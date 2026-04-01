@@ -13,6 +13,10 @@ export default function Auth() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
+      if (err.code === 'auth/popup-closed-by-user') {
+        setIsLoading(false);
+        return;
+      }
       console.error(err);
       setError(err.message || 'Failed to sign in. Please try again.');
     } finally {
