@@ -1,0 +1,17 @@
+{
+  "name": "Teamtracker",
+  "short_name": "Teamtracker",
+  "description": "A collaborative team tracking application with daily tasks, points, and a leaderboard to motivate productivity.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -43,6 +43,28 @@ interface DashboardProps {
 
 export default function Dashboard({ userProfile, tasks, rank, teamMembers, team, allTasks, projects, onNavigate }: DashboardProps) {
   const [isEditingProfile, setIsEditingProfile] = React.useState(false);
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallBtn(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   const isCaptain = userProfile?.role === 'Captain';
 
@@ -119,6 +141,15 @@ export default function Dashboard({ userProfile, tasks, rank, teamMembers, team,
           <p className="text-white/60 font-medium mt-2 text-lg">Your team is making great progress today.</p>
         </div>
         <div className="flex gap-3">
+          {showInstallBtn && (
+            <button
+              onClick={handleInstall}
+              className="flex items-center justify-center gap-2 px-8 py-4 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 rounded-2xl text-sm font-bold text-white shadow-xl hover:bg-emerald-500/30 transition-all active:scale-95"
+            >
+              <ArrowUpRight size={20} />
+              Install App
+            </button>
+          )}
           <button
             onClick={() => setIsEditingProfile(true)}
             className="flex items-center justify-center gap-2 px-8 py-4 bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 rounded-2xl text-sm font-bold text-white shadow-xl hover:bg-indigo-500/30 transition-all active:scale-95"
