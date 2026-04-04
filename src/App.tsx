@@ -90,7 +90,7 @@ export default function App() {
           if (!userDoc.exists()) {
             // Create default profile
             const defaultTeamId = 'general-team';
-            const rollNumber = null; // Force user to set a valid roll number
+            const rollNumber = undefined; // Force user to set a valid roll number
             
             const newProfile: UserProfile = {
               uid: currentUser.uid,

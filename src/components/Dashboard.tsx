@@ -149,7 +149,7 @@ export default function Dashboard({ userProfile, tasks, rank, teamMembers, team,
             className={cn(
               "p-8 rounded-[2.5rem] transition-all relative overflow-hidden shadow-xl hover:shadow-2xl",
               "bg-gradient-to-br", stat.gradient,
-              stat.onClick ? "cursor-pointer group" : ""
+              stat.onClick !== undefined ? "cursor-pointer group" : ""
             )}
           >
             <div className="relative z-10">

@@ -48,7 +48,7 @@ export default function ProfileEditor({ user, team, onClose }: ProfileEditorProp
     return roll.length <= 50; // Relaxed validation
   };
 
-  const isRollNumberInvalid = rollNumber && !validateRollNumber(rollNumber);
+  const isRollNumberInvalid = !!(rollNumber && !validateRollNumber(rollNumber));
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
